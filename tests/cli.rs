@@ -24,7 +24,7 @@ fn scan_subcommand_runs() {
 
     // Determine expected files using the journal module
     let includes: Vec<PathBuf> = config.paths.include.iter().map(PathBuf::from).collect();
-    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes)
+    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &config.paths.exclude)
         .expect("collect changed files");
     let mut expected: Vec<String> = expected
         .iter()
@@ -38,11 +38,11 @@ fn scan_subcommand_runs() {
         .expect("failed to run");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut lines: Vec<String> = stdout
-        .lines()
-        .skip(1) // skip config dump
-        .map(|s| s.to_string())
-        .collect();
+    let mut iter = stdout.lines();
+    iter.next(); // skip config dump
+    let summary = iter.next().unwrap_or("");
+    assert!(summary.starts_with("Found ")); // basic sanity check
+    let mut lines: Vec<String> = iter.map(|s| s.to_string()).collect();
     lines.sort();
     assert_eq!(lines, expected);
 }
