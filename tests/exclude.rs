@@ -27,6 +27,7 @@ fn test_scan_respects_exclude() {
     let output = Command::new(env!("CARGO_BIN_EXE_rustybackup"))
         .arg("--config")
         .arg(&config_path)
+        .arg("scan")
         .output()
         .expect("run binary");
 

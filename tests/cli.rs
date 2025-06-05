@@ -13,7 +13,7 @@ fn help_displays() {
 #[test]
 fn scan_subcommand_runs() {
     let output = binary()
-        .args(["scan", "--config", "tests/test_config.toml"])
+        .args(["--config", "tests/test_config.toml", "scan"])
         .output()
         .expect("failed to run");
     assert!(output.status.success());
@@ -22,7 +22,7 @@ fn scan_subcommand_runs() {
 #[test]
 fn backup_subcommand_runs() {
     let output = binary()
-        .args(["backup", "--config", "tests/test_config.toml"])
+        .args(["--config", "tests/test_config.toml", "backup"])
         .output()
         .expect("failed to run");
     assert!(output.status.success());
@@ -31,7 +31,7 @@ fn backup_subcommand_runs() {
 #[test]
 fn vacuum_subcommand_runs() {
     let output = binary()
-        .args(["vacuum", "--config", "tests/test_config.toml"])
+        .args(["--config", "tests/test_config.toml", "vacuum"])
         .output()
         .expect("failed to run");
     assert!(output.status.success());
@@ -40,7 +40,7 @@ fn vacuum_subcommand_runs() {
 #[test]
 fn status_subcommand_runs() {
     let output = binary()
-        .args(["status", "--config", "tests/test_config.toml"])
+        .args(["--config", "tests/test_config.toml", "status"])
         .output()
         .expect("failed to run");
     assert!(output.status.success());
