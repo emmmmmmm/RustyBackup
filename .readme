@@ -1,0 +1,29 @@
+# rustybackup
+
+`rustybackup` is a minimal backup tool scaffold written in Rust. It serves as a learning example and a foundation for experimenting with additional automation.
+
+The tool provides a command line interface with commands for scanning configured directories, performing placeholder backups, vacuuming old versions, and checking status. Configuration is loaded from a TOML file.
+
+## Features
+
+- Command line interface built with [`clap`](https://crates.io/crates/clap)
+- Configuration parsed with `serde` and `toml`
+- `scan` command lists files under the configured include paths while respecting exclude patterns
+- Placeholder implementations for `backup`, `vacuum`, and `status` commands
+- Stub module for reading the NTFS USN change journal on Windows
+
+## Building
+
+1. Install Rust from [rustup.rs](https://rustup.rs).
+2. Build the project with `cargo build`.
+3. Run a command, e.g. `cargo run -- scan --config config.toml`.
+4. Execute the test suite with `cargo test`.
+
+## Repository Layout
+
+- `src/main.rs` - entry point and CLI definitions
+- `src/config.rs` - configuration structures
+- `src/backup.rs` - scanning and placeholder logic
+- `src/journal.rs` - change journal stub
+- `tests/` - integration tests for the CLI and config
+
