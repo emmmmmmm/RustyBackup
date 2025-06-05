@@ -8,39 +8,30 @@ use std::time::SystemTime;
 pub fn changed_files(since: SystemTime) -> Result<Vec<PathBuf>> {
     #[cfg(target_os = "windows")]
     {
-        use std::{ffi::OsStr, iter::once, os::windows::ffi::OsStrExt};
-        use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
-        use windows_sys::Win32::Storage::FileSystem::{CreateFileW, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING};
+        use usn_journal_rs::{journal::UsnJournal, path::PathResolver, volume::Volume};
 
-        // This minimal implementation only opens the C: volume and returns
-        // an empty list. A full implementation would use FSCTL_QUERY_USN_JOURNAL
-        // and FSCTL_READ_USN_JOURNAL to enumerate records newer than `since`.
+        // For now we only examine the system drive (C:). A more complete
+        // implementation could detect the drive from configured include paths.
+        let volume = Volume::from_drive_letter('C')
+            .map_err(|e| anyhow!("failed to open volume: {e}"))?;
 
-        let vol = OsStr::new("\\\\.\\C:")
-            .encode_wide()
-            .chain(once(0))
-            .collect::<Vec<u16>>();
+        let journal = UsnJournal::new(&volume);
+        let iter = journal
+            .iter()
+            .map_err(|e| anyhow!("failed to read USN journal: {e}"))?;
 
-        let handle = unsafe {
-            CreateFileW(
-                vol.as_ptr(),
-                0, // GENERIC_READ
-                FILE_SHARE_READ | FILE_SHARE_WRITE,
-                std::ptr::null_mut(),
-                OPEN_EXISTING,
-                0,
-                0,
-            )
-        };
+        let mut resolver = PathResolver::new_with_cache(&volume);
+        let mut files = Vec::new();
 
-        if handle == INVALID_HANDLE_VALUE {
-            return Err(anyhow!("failed to open volume for USN journal"));
+        for entry in iter {
+            if entry.time > since && !entry.is_dir() {
+                if let Some(path) = resolver.resolve_path(&entry) {
+                    files.push(path);
+                }
+            }
         }
 
-        unsafe { CloseHandle(handle) };
-
-        // Placeholder: real USN parsing not yet implemented
-        Ok(Vec::new())
+        Ok(files)
     }
 
     #[cfg(not(target_os = "windows"))]
