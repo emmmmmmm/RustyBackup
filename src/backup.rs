@@ -1,7 +1,8 @@
 use crate::config::Config;
 use crate::journal;
-use std::path::PathBuf;
+use crate::state::load_or_init_state;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::time::SystemTime;
 use walkdir::WalkDir;
 use globset::{Glob, GlobSetBuilder};
@@ -20,8 +21,9 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
         .collect();
 
     
-    use std::time::{SystemTime, Duration};
-    let since = SystemTime::now() - Duration::from_secs(60 * 60); // past hour
+    let state_path = PathBuf::from(&config.backup.destination).join("state.toml");
+    let state = load_or_init_state(&state_path)?;
+    let since: SystemTime = state.latest.timestamp.into();
     let changed = journal::changed_files(since, &includes)?;
     let changed_set: HashSet<_> = changed.iter().collect();
 
@@ -47,7 +49,9 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
 }
 
 /// Placeholder backup implementation.
-pub fn run_backup(_config: &Config) -> anyhow::Result<()> {
+pub fn run_backup(config: &Config) -> anyhow::Result<()> {
+    let state_path = PathBuf::from(&config.backup.destination).join("state.toml");
+    let _state = load_or_init_state(&state_path)?;
     println!("Performing backup...");
     Ok(())
 }

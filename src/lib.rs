@@ -4,4 +4,4 @@ pub mod journal;
 pub mod state;
 
 pub use config::{Config, BackupPaths, BackupOptions};
-pub use state::{State, LatestBackup, BackupStats};
+pub use state::{BackupState, LatestBackup, BackupStats, load_or_init_state};

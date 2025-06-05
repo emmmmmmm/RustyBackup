@@ -4,6 +4,7 @@
 mod config;
 mod backup;
 mod journal;
+mod state;
 
 use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};

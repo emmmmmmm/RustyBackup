@@ -1,9 +1,10 @@
 use chrono::{DateTime, Local};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::time::SystemTime;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct State {
+pub struct BackupState {
     pub latest: LatestBackup,
     pub stats: BackupStats,
 }
@@ -22,7 +23,30 @@ pub struct BackupStats {
     pub duration_ms: u64,
 }
 
-impl State {
+impl Default for BackupStats {
+    fn default() -> Self {
+        Self {
+            files_synced: 0,
+            bytes_copied: 0,
+            duration_ms: 0,
+        }
+    }
+}
+
+impl Default for BackupState {
+    fn default() -> Self {
+        Self {
+            latest: LatestBackup {
+                timestamp: DateTime::<Local>::from(SystemTime::UNIX_EPOCH),
+                snapshot_id: String::new(),
+                destination: PathBuf::new(),
+            },
+            stats: BackupStats::default(),
+        }
+    }
+}
+
+impl BackupState {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
         let data = std::fs::read_to_string(path)?;
         Ok(toml::from_str(&data)?)
@@ -32,5 +56,19 @@ impl State {
         let data = toml::to_string_pretty(self)?;
         std::fs::write(path, data)?;
         Ok(())
+    }
+}
+
+/// Load the backup state from `path`, or initialize it if it does not exist.
+pub fn load_or_init_state(path: &Path) -> anyhow::Result<BackupState> {
+    if path.exists() {
+        BackupState::load(path)
+    } else {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        let state = BackupState::default();
+        state.save(path)?;
+        Ok(state)
     }
 }
