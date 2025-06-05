@@ -1,0 +1,8 @@
+[paths]
+include = ["src"]
+exclude = []
+
+[backup]
+destination = "tmp"
+keep_versions = true
+max_versions = 1

@@ -5,7 +5,7 @@ mod config;
 mod backup;
 mod journal;
 
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::{fs, path::PathBuf};
 use config::Config;
 
@@ -16,6 +16,22 @@ struct Args {
     /// Path to config file
     #[arg(short, long, default_value = "config.toml")]
     config: PathBuf,
+
+    /// Action to perform
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Scan configured paths and print discovered files
+    Scan,
+    /// Perform a backup run (placeholder)
+    Backup,
+    /// Remove outdated backups (placeholder)
+    Vacuum,
+    /// Show backup status information (placeholder)
+    Status,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -26,9 +42,13 @@ fn main() -> anyhow::Result<()> {
 
     println!("Loaded config: {:?}", config);
 
-    backup::scan(&config)?;
+    match args.command {
+        Commands::Scan => backup::scan(&config)?,
+        Commands::Backup => backup::run_backup(&config)?,
+        Commands::Vacuum => backup::vacuum(&config)?,
+        Commands::Status => backup::status(&config)?,
+    }
 
-    // Placeholder for additional logic
     Ok(())
 }
 
@@ -47,8 +67,9 @@ fn main() -> anyhow::Result<()> {
    toml = "0.8"
    anyhow = "1.0"
 
-4. Run:
-   cargo run -- --config config.toml
+4. Run examples:
+   cargo run -- scan --config config.toml
+   cargo run -- backup --config config.toml
 
 5. Test:
    cargo test
