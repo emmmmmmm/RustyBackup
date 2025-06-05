@@ -1,0 +1,26 @@
+# === Rust build output ===
+/target/
+
+# === IDEs and editors ===
+**/*.rs.bk
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# === OS junk ===
+.DS_Store
+Thumbs.db
+
+# === Logs / misc ===
+*.log
+
+# === Cargo / Rustup specific ===
+/Cargo.lock
+/.cargo/
+/rustfmt.toml
+
+# === Test / temporary ===
+/config.toml
+/tests/output/
+/backup_test/
