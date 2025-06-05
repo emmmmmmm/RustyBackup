@@ -20,7 +20,6 @@ pub struct BackupOptions {
     pub max_versions: Option<u32>,
 }
 
-
 pub fn load_config(path: &Path) -> anyhow::Result<Config> {
     let data = std::fs::read_to_string(path)?;
     Ok(toml::from_str(&data)?)
