@@ -32,7 +32,6 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
     let excludes = builder.build()?;
 
     for path in &config.paths.include {
-         println!("checking path: {} ", path);
         for entry in WalkDir::new(path).into_iter().filter_entry(|e| !excludes.is_match(e.path())) {
             let entry = entry?;
             if entry.file_type().is_file() {

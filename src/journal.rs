@@ -1,7 +1,6 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use std::path::PathBuf;
 use std::time::SystemTime;
-use chrono::{DateTime, Local};
 
 
 #[allow(unused_variables)]
@@ -26,8 +25,6 @@ pub fn changed_files(since: SystemTime, include_paths: &[PathBuf]) -> Result<Vec
         }
     }
 
-    let datetime: DateTime<Local> = since.into();
-    println!("Found {} changed files since {}", files.len(), datetime);
     Ok(files)
 }
 
