@@ -2,6 +2,7 @@
 //! Designed for learning + Codex integration
 
 mod config;
+mod backup;
 
 use clap::Parser;
 use std::{fs, path::PathBuf};
@@ -24,7 +25,9 @@ fn main() -> anyhow::Result<()> {
 
     println!("Loaded config: {:?}", config);
 
-    // Placeholder for scanning and diff logic
+    backup::scan(&config)?;
+
+    // Placeholder for additional logic
     Ok(())
 }
 
