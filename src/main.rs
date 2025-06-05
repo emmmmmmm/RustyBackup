@@ -3,6 +3,7 @@
 
 mod config;
 mod backup;
+mod journal;
 
 use clap::Parser;
 use std::{fs, path::PathBuf};
