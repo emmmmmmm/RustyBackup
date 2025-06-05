@@ -16,3 +16,21 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Placeholder backup implementation.
+pub fn run_backup(_config: &Config) -> anyhow::Result<()> {
+    println!("Performing backup...");
+    Ok(())
+}
+
+/// Placeholder vacuum implementation.
+pub fn vacuum(_config: &Config) -> anyhow::Result<()> {
+    println!("Vacuuming old backups...");
+    Ok(())
+}
+
+/// Placeholder status implementation.
+pub fn status(_config: &Config) -> anyhow::Result<()> {
+    println!("Backup status: OK");
+    Ok(())
+}
+
