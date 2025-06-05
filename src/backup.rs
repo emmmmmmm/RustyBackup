@@ -1,4 +1,7 @@
 use crate::config::Config;
+use crate::journal;
+use std::collections::HashSet;
+use std::time::SystemTime;
 use walkdir::WalkDir;
 use globset::{Glob, GlobSetBuilder};
 
@@ -6,6 +9,10 @@ use globset::{Glob, GlobSetBuilder};
 ///
 /// Entries matching any of the configured exclude patterns will be skipped.
 pub fn scan(config: &Config) -> anyhow::Result<()> {
+    // Determine changed files since the beginning of time by default.
+    let changed = journal::changed_files(SystemTime::UNIX_EPOCH)?;
+    let changed_set: HashSet<_> = changed.iter().collect();
+
     let mut builder = GlobSetBuilder::new();
     for pattern in &config.paths.exclude {
         builder.add(Glob::new(pattern)?);
@@ -16,10 +23,13 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
         for entry in WalkDir::new(path).into_iter().filter_entry(|e| !excludes.is_match(e.path())) {
             let entry = entry?;
             if entry.file_type().is_file() {
-                println!("{}", entry.path().display());
+                if changed_set.is_empty() ||
+                    changed_set.contains(&entry.path().to_path_buf())
+                {
+                    println!("{}", entry.path().display());
+                }
             }
         }
     }
     Ok(())
 }
-
