@@ -19,7 +19,10 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
         .map(PathBuf::from)
         .collect();
 
-    let changed = journal::changed_files(SystemTime::UNIX_EPOCH, &includes)?;
+    
+    use std::time::{SystemTime, Duration};
+    let since = SystemTime::now() - Duration::from_secs(60 * 60); // past hour
+    let changed = journal::changed_files(since, &includes)?;
     let changed_set: HashSet<_> = changed.iter().collect();
 
     let mut builder = GlobSetBuilder::new();
@@ -29,6 +32,7 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
     let excludes = builder.build()?;
 
     for path in &config.paths.include {
+         println!("checking path: {} ", path);
         for entry in WalkDir::new(path).into_iter().filter_entry(|e| !excludes.is_match(e.path())) {
             let entry = entry?;
             if entry.file_type().is_file() {
