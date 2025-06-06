@@ -144,6 +144,16 @@ pub fn run_backup(config: &Config) -> Result<()> {
         TempBackup::new(changed)
     };
 
+    // Set or increment snapshot id based on the previously stored state
+    if progress.snapshot_id == 0 {
+        let last_id = state
+            .latest
+            .snapshot_id
+            .parse::<u64>()
+            .unwrap_or(0);
+        progress.snapshot_id = last_id.saturating_add(1);
+    }
+
 
 
 
