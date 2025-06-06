@@ -1,5 +1,10 @@
-//! Minimal Rust Backup Tool Scaffold
-//! Designed for learning + Codex integration
+//! A Minimal Rust Backup Tool 
+
+// TODO: 
+// - vacuum function to remove outdated backups (using max_versions from config file)
+// - decide how to handle deleted files (maybe just move to "history")
+// 
+
 
 mod config;
 mod backup;
@@ -27,7 +32,7 @@ struct Args {
 enum Commands {
     /// Scan configured paths and print discovered files
     Scan,
-    /// Perform a backup run (placeholder)
+    /// Perform a backup run
     Backup,
     /// Remove outdated backups (placeholder)
     Vacuum,
@@ -52,26 +57,3 @@ fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-
-/* BUILD INSTRUCTIONS (for Codex or manual use)
-
-1. Ensure Rust is installed:
-   https://rustup.rs
-
-2. Create project (if not already):
-   cargo new rustybackup --bin
-
-3. Add dependencies to Cargo.toml:
-   [dependencies]
-   clap = { version = "4.5", features = ["derive"] }
-   serde = { version = "1.0", features = ["derive"] }
-   toml = "0.8"
-   anyhow = "1.0"
-
-4. Run examples:
-   cargo run -- scan --config config.toml
-   cargo run -- backup --config config.toml
-
-5. Test:
-   cargo test
-*/

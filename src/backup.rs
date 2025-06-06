@@ -8,13 +8,17 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 use std::time::SystemTime;
 use std::time::Duration;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use chrono::{DateTime, Local};
+use chrono::{NaiveDateTime};
+use chrono::TimeZone;
 use indicatif::{ProgressBar, ProgressStyle};
+use regex::Regex;
+
 
 #[derive(Serialize, Deserialize)]
-struct Status {
-    state: String,
+pub struct Status {
+    pub state: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -289,11 +293,75 @@ pub fn run_backup(config: &Config) -> Result<()> {
 }
 
 
-/// Placeholder vacuum implementation.
-pub fn vacuum(_config: &Config) -> anyhow::Result<()> {
+/// Vacuum old versions from the history folder, keeping only the most recent `max_versions`.
+
+
+pub fn vacuum(config: &Config) -> Result<()> {
     println!("Vacuuming old backups...");
+
+    let history_root = PathBuf::from(&config.backup.destination).join("History");
+    //let max_versions = config.backup.max_versions.unwrap_or(5);
+    if !history_root.exists() {
+        println!("No history folder found.");
+        return Ok(());
+    }
+
+    let mut file_versions: HashMap<PathBuf, Vec<(DateTime<Local>, PathBuf)>> = HashMap::new();
+    let re = Regex::new(r"^(.*)_((?:\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}))(\..+)?$").unwrap();
+
+    for entry in walkdir::WalkDir::new(&history_root)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+    {
+        let full_path = entry.path().to_path_buf();
+        let filename = full_path.file_name().unwrap().to_string_lossy();
+        //println!("→ Found file: {}", filename);
+        if let Some(caps) = re.captures(&filename) {
+            let base = caps.get(1).unwrap().as_str();
+            let ts_str = caps.get(2).unwrap().as_str();
+            let ext = caps.get(3).map(|e| e.as_str()).unwrap_or("");
+            //println!("  ✓ Matched base: {}, timestamp: {}, ext: {}", base, ts_str, ext);
+
+            if let Ok(naive) = NaiveDateTime::parse_from_str(ts_str, "%Y-%m-%dT%H-%M-%S") {
+                let mut canonical = full_path.clone();
+                let local_dt = Local.from_local_datetime(&naive).unwrap();
+                canonical.set_file_name(format!("{}{}", base, ext));
+                //println!("  → Canonical form: {}", canonical.display());
+                file_versions
+                    .entry(canonical)
+                    .or_default()
+                    .push((local_dt, full_path.clone()));
+            } else {
+                println!("  ✗ Failed to parse timestamp: {}", ts_str);
+            }
+        } else {
+            println!("  ✗ No regex match");
+        }
+    }
+    let mut total_candidates = 0;
+    for (base_path, mut versions) in file_versions {
+        versions.sort_by_key(|(ts, _)| std::cmp::Reverse(*ts));
+        let keep = config.backup.max_versions.unwrap_or(0) as usize;
+        let to_prune = &versions[keep.min(versions.len())..];
+        //println!("  → {} has {} versions, keeping {}, pruning {}",
+        //    base_path.display(), versions.len(), keep, to_prune.len());
+        if !to_prune.is_empty() {
+            println!("Found {} prune candidates for {}:", to_prune.len(), base_path.display());
+            for (ts, path) in to_prune {
+                println!("  - {} ({})", path.display(), ts);
+                // TODO: this would actually remove files!
+                // fs::remove_file(&path).with_context(|| format!("Failed to delete {}", path.display()))?;
+                total_candidates += 1;
+            }
+        }
+    }
+
+    println!("Vacuum dry-run complete. {} files would be removed.", total_candidates);
+    
     Ok(())
 }
+
 
 /// Placeholder status implementation.
 pub fn status(_config: &Config) -> anyhow::Result<()> {
