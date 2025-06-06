@@ -2,6 +2,7 @@ use chrono::{DateTime, Local};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+use crate::backup;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupState {
@@ -57,6 +58,18 @@ impl BackupState {
         std::fs::write(path, data)?;
         Ok(())
     }
+
+    pub fn record_backup(&mut self, progress: &backup::TempBackup, dest: &Path) {
+        self.latest.timestamp = progress.timestamp;
+        self.latest.snapshot_id = progress.snapshot_id.to_string();
+        self.latest.destination = dest.to_path_buf();
+
+        self.stats.files_synced = progress.completed.files.len() as u64;
+        self.stats.bytes_copied = 0; // still untracked — stub for now
+        self.stats.duration_ms = progress.duration.as_millis() as u64;
+    }
+
+
 }
 
 /// Load the backup state from `path`, or initialize it if it does not exist.
