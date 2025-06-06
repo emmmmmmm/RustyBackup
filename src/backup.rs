@@ -86,7 +86,8 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
     let state = load_or_init_state(&state_path)?;
     let since: SystemTime = state.latest.timestamp.into();
 
-    let files = journal::changed_files(since, &includes, &config.paths.exclude)?;
+    let dest_root = PathBuf::from(&config.backup.destination);
+    let files = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
 
     println!(
         "Found {} changed files since {}",
@@ -138,7 +139,8 @@ pub fn run_backup(config: &Config) -> Result<()> {
                 .iter()
                 .map(PathBuf::from)
                 .collect();
-            let changed = journal::changed_files(since, &includes, &config.paths.exclude)?;
+            let dest_root = PathBuf::from(&config.backup.destination);
+            let changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
             TempBackup::new(changed)
         }
     } else {    
@@ -148,7 +150,8 @@ pub fn run_backup(config: &Config) -> Result<()> {
             .iter()
             .map(PathBuf::from)
             .collect();
-        let  changed = journal::changed_files(since, &includes, &config.paths.exclude)?;
+        let dest_root = PathBuf::from(&config.backup.destination);
+        let  changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
         TempBackup::new(changed)
     };
 

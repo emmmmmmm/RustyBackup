@@ -24,7 +24,8 @@ fn scan_subcommand_runs() {
 
     // Determine expected files using the journal module
     let includes: Vec<PathBuf> = config.paths.include.iter().map(PathBuf::from).collect();
-    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &config.paths.exclude)
+    let dest = PathBuf::from(&config.backup.destination);
+    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &config.paths.exclude, &dest)
         .expect("collect changed files");
     let mut expected: Vec<String> = expected
         .iter()
