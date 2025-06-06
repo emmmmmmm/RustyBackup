@@ -33,6 +33,8 @@ pub struct TempBackup {
     pub incomplete: FileList,
     pub completed: FileList,
     pub failed: FileList,
+    #[serde(default)]
+    pub bytes_copied: u64,
     pub duration:  Duration,
     pub timestamp: DateTime<Local>,
     pub snapshot_id: u64,
@@ -47,6 +49,7 @@ impl TempBackup {
             incomplete: FileList { files },
             completed: FileList { files: Vec::new() },
             failed: FileList { files: Vec::new() },
+            bytes_copied: 0,
             duration: Duration::ZERO,
             timestamp: DateTime::<Local>::from(SystemTime::UNIX_EPOCH),
             snapshot_id: 0,
@@ -235,7 +238,8 @@ pub fn run_backup(config: &Config) -> Result<()> {
 
         // Perform the copy
         match fs::copy(&path, &temp_file) {
-            Ok(_) => {
+            Ok(size) => {
+                progress.bytes_copied = progress.bytes_copied.saturating_add(size);
                 fs::rename(&temp_file, &final_file)
                     .with_context(|| format!("Failed to rename: {}", final_file.display()))?;
                 completed.insert(path.clone());
