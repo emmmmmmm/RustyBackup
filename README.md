@@ -34,3 +34,32 @@ state. Configuration is loaded from a TOML file.
 - `src/journal.rs` - changed file detection helpers
 - `tests/` - integration and unit tests
 
+## Configuration
+
+Settings are loaded from a `config.toml` file. The file is divided into
+`[paths]` and `[backup]` sections:
+
+```toml
+[paths]
+include = ["src"]          # directories to scan
+exclude = ["*/temp"]      # optional glob patterns to ignore
+
+[backup]
+destination = "backups"   # where backup data and state are stored
+keep_versions = true       # keep previous versions under a `History` folder
+max_versions = 5           # limit history depth when set
+```
+
+Field descriptions:
+
+- **paths.include**: directories that will be scanned for changed files.
+- **paths.exclude**: list of patterns to skip during scanning.
+- **backup.destination**: directory that receives the synchronized files and
+  `state.toml`.
+- **backup.keep_versions**: if `true`, prior versions of modified files are
+  preserved in a `History` folder.
+- **backup.max_versions**: optional maximum number of versions to keep when
+  `keep_versions` is enabled.
+
+See `tests/test_config.toml` for a minimal working example.
+
