@@ -105,7 +105,9 @@ pub fn run_backup(config: &Config) -> Result<()> {
 
     // Ensure the destination directory exists or create it
     if !dest.exists() {
-        fs::create_dir_all(&dest).context("Failed to create backup destination directory")?;
+        fs::create_dir_all(&dest)
+            .with_context(|| format!("Failed to create or access backup destination. Is the network drive mounted? Path: {}", dest.display()))?;
+
     }
 
     // Now canonicalize the existing directory
