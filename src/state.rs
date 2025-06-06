@@ -66,7 +66,7 @@ impl BackupState {
         self.latest.destination = PathBuf::from(&config.backup.destination);
 
         self.stats.files_synced = progress.completed.files.len() as u64;
-        self.stats.bytes_copied = 0; // still untracked — stub for now
+        self.stats.bytes_copied = progress.bytes_copied;
         self.stats.duration_ms = progress.duration.as_millis() as u64;
     }
 
