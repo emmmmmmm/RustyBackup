@@ -4,7 +4,6 @@ use crate::state::load_or_init_state;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::ffi::OsString;
 use anyhow::{bail, Context, Result};
 use std::time::Instant;
 use std::time::SystemTime;

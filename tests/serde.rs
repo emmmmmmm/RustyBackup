@@ -1,4 +1,4 @@
-use rustybackup::config::{Config, BackupPaths, BackupOptions};
+use rustybackup::config::Config;
 use toml; // might require network access to fetch dependencies
 
 #[test]
