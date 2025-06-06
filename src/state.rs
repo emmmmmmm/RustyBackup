@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use crate::backup;
+use crate::config::Config;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupState {
@@ -59,10 +60,10 @@ impl BackupState {
         Ok(())
     }
 
-    pub fn record_backup(&mut self, progress: &backup::TempBackup, dest: &Path) {
+    pub fn record_backup(&mut self, progress: &backup::TempBackup, config: &Config) {
         self.latest.timestamp = progress.timestamp;
         self.latest.snapshot_id = progress.snapshot_id.to_string();
-        self.latest.destination = dest.to_path_buf();
+        self.latest.destination = PathBuf::from(&config.backup.destination);
 
         self.stats.files_synced = progress.completed.files.len() as u64;
         self.stats.bytes_copied = 0; // still untracked — stub for now

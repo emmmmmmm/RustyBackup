@@ -249,7 +249,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     progress.save(&temp_state_file)?;
 
     // Update global state
-    state.record_backup(&progress, dest.as_path()); 
+    state.record_backup(&progress, &config); 
     state.save(&state_file)?;
 
     // Remove .incomplete marker
