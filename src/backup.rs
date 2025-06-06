@@ -314,7 +314,7 @@ pub fn vacuum(config: &Config) -> Result<()> {
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
     {
-        let full_path = entry.path().to_path_buf();
+        let full_path = normalize_path(entry.path()).to_path_buf();
         let filename = full_path.file_name().unwrap().to_string_lossy();
         //println!("→ Found file: {}", filename);
         if let Some(caps) = re.captures(&filename) {
@@ -327,6 +327,8 @@ pub fn vacuum(config: &Config) -> Result<()> {
                 let mut canonical = full_path.clone();
                 let local_dt = Local.from_local_datetime(&naive).unwrap();
                 canonical.set_file_name(format!("{}{}", base, ext));
+                let canonical = normalize_path(&canonical);
+
                 //println!("  → Canonical form: {}", canonical.display());
                 file_versions
                     .entry(canonical)
@@ -348,8 +350,9 @@ pub fn vacuum(config: &Config) -> Result<()> {
         //    base_path.display(), versions.len(), keep, to_prune.len());
         if !to_prune.is_empty() {
             println!("Found {} prune candidates for {}:", to_prune.len(), base_path.display());
-            for (ts, path) in to_prune {
-                println!("  - {} ({})", path.display(), ts);
+            for (_ts, path) in to_prune {
+                println!("{} ", path.display());
+
                 // TODO: this would actually remove files!
                 // fs::remove_file(&path).with_context(|| format!("Failed to delete {}", path.display()))?;
                 total_candidates += 1;
@@ -370,3 +373,6 @@ pub fn status(_config: &Config) -> anyhow::Result<()> {
 }
 
 
+fn normalize_path(path: &Path) -> PathBuf {
+    PathBuf::from(path.to_string_lossy().replace('\\', "/"))
+}
