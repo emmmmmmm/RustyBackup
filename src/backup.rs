@@ -2,15 +2,15 @@ use crate::config::Config;
 use crate::journal;
 use crate::state::load_or_init_state;
 use serde::{Deserialize, Serialize};
+use anyhow::{bail, Context, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
-use anyhow::{bail, Context, Result};
 use std::time::Instant;
 use std::time::SystemTime;
 use std::time::Duration;
-use chrono::{DateTime, Local};
 use std::collections::HashSet;
-
+use chrono::{DateTime, Local};
+use indicatif::{ProgressBar, ProgressStyle};
 
 #[derive(Serialize, Deserialize)]
 struct Status {
@@ -170,7 +170,21 @@ pub fn run_backup(config: &Config) -> Result<()> {
     let mut completed: HashSet<PathBuf> = progress.completed.files.iter().cloned().collect();
     let mut failed: HashSet<PathBuf> = progress.failed.files.iter().cloned().collect();
 
+
+    let total_files = progress.incomplete.files.len() as u64;
+    let pb = ProgressBar::new(total_files);
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files ({eta})")
+            .unwrap()
+            .progress_chars("##-")
+    );
+
+
+
     for path in &progress.incomplete.files {
+        pb.inc(1);
+        pb.set_message(path.display().to_string());
         if completed.contains(path) {
             continue;
         }
@@ -256,7 +270,6 @@ pub fn run_backup(config: &Config) -> Result<()> {
         progress.failed = failed.iter().cloned().collect();
         progress.save(&temp_state_file)?;
     }
-
     // Finalize backup status
     progress.status = Status { state: "in_progress".to_string(),            };
     progress.duration = start_time.elapsed(); // todo add field to progress
@@ -269,8 +282,9 @@ pub fn run_backup(config: &Config) -> Result<()> {
 
     // Remove .incomplete marker
     fs::remove_file(&temp_state_file).ok();
-
-    println!("Backup completed.");
+    
+    pb.finish_with_message("Backup completed.");
+    //println!("Backup completed.");
     Ok(())
 }
 
