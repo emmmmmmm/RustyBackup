@@ -14,7 +14,8 @@ state. Configuration is loaded from a TOML file.
 - `scan` shows files changed since the last backup while honoring exclude patterns
 - `backup` copies changed files, keeps prior versions in a `History` folder and can resume if interrupted
 - `vacuum` and `status` subcommands are placeholders for future features
-- Persistent `state.toml` tracks snapshot IDs and transfer statistics
+- Persistent `state.toml` tracks snapshot IDs and records transfer statistics
+  for each snapshot
 - Stub module for reading the NTFS USN change journal on Windows
 
 ## Building
@@ -62,4 +63,15 @@ Field descriptions:
   `keep_versions` is enabled.
 
 See `tests/test_config.toml` for a minimal working example.
+
+### State file
+
+`state.toml` stores metadata about the latest and previous backups. Each item in
+the `stats` array records:
+
+- `timestamp` – when the backup completed
+- `snapshot_id` – monotonically increasing identifier
+- `files_synced` – count of files copied
+- `bytes_copied` – total bytes transferred
+- `duration_ms` – runtime in milliseconds
 

@@ -15,6 +15,7 @@ fn state_roundtrip() {
         },
         stats: vec![BackupStats {
             timestamp: now,
+            snapshot_id: "001".into(),
             files_synced: 1,
             bytes_copied: 2,
             duration_ms: 3,
@@ -29,6 +30,7 @@ fn state_roundtrip() {
     assert_eq!(state.stats[0].files_synced, loaded.stats[0].files_synced);
     assert_eq!(state.stats[0].bytes_copied, loaded.stats[0].bytes_copied);
     assert_eq!(state.stats[0].duration_ms, loaded.stats[0].duration_ms);
+    assert_eq!(state.stats[0].snapshot_id, loaded.stats[0].snapshot_id);
     assert_eq!(state.latest.timestamp.timestamp(), loaded.latest.timestamp.timestamp());
 }
 

@@ -22,6 +22,8 @@ pub struct LatestBackup {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupStats {
     pub timestamp: DateTime<Local>,
+    /// Unique identifier for this snapshot
+    pub snapshot_id: String,
     pub files_synced: u64,
     pub bytes_copied: u64,
     pub duration_ms: u64,
@@ -31,6 +33,7 @@ impl Default for BackupStats {
     fn default() -> Self {
         Self {
             timestamp: DateTime::<Local>::from(SystemTime::UNIX_EPOCH),
+            snapshot_id: String::new(),
             files_synced: 0,
             bytes_copied: 0,
             duration_ms: 0,
@@ -70,6 +73,7 @@ impl BackupState {
 
         let entry = BackupStats {
             timestamp: progress.timestamp,
+            snapshot_id: progress.snapshot_id.to_string(),
             files_synced: progress.completed.files.len() as u64,
             bytes_copied: progress.bytes_copied,
             duration_ms: progress.duration.as_millis() as u64,
