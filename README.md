@@ -21,7 +21,7 @@ state. Configuration is loaded from a TOML file.
 
 1. Install Rust from [rustup.rs](https://rustup.rs).
 2. Build the project with `cargo build`.
-3. Run a command, e.g. `cargo run -- scan --config config.toml`.
+3. Run a command, e.g. `cargo run -- --config config.toml scan`.
 4. Execute the test suite with `cargo test`.
 
 ## Repository Layout
