@@ -1,10 +1,9 @@
 use std::process::Command;
 use std::fs;
 use std::path::PathBuf;
+use tempfile::tempdir;
 use std::time::SystemTime;
-use rustybackup::config::Config;
 use rustybackup::journal;
-use toml;
 
 fn binary() -> Command {
     Command::new(env!("CARGO_BIN_EXE_rustybackup"))
@@ -18,31 +17,31 @@ fn help_displays() {
 
 #[test]
 fn scan_subcommand_runs() {
-    // Load config using the library helper
-    let data = fs::read_to_string("tests/test_config.toml").expect("read config");
-    let config: Config = toml::from_str(&data).expect("parse config");
+    let tmp = tempdir().unwrap();
+    let dest = tmp.path().join("dest");
+    let config_path = tmp.path().join("config.toml");
+    let content = format!(
+        "[paths]\ninclude=[\"src\"]\nexclude=[]\n\n[backup]\ndestination=\"{}\"\nkeep_versions=true\nmax_versions=1\n",
+        dest.display()
+    );
+    fs::write(&config_path, content).unwrap();
 
-    // Determine expected files using the journal module
-    let includes: Vec<PathBuf> = config.paths.include.iter().map(PathBuf::from).collect();
-    let dest = PathBuf::from(&config.backup.destination);
-    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &config.paths.exclude, &dest)
+    let includes = vec![PathBuf::from("src")];
+    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &[], &dest)
         .expect("collect changed files");
-    let mut expected: Vec<String> = expected
-        .iter()
-        .map(|p| p.display().to_string())
-        .collect();
+    let mut expected: Vec<String> = expected.iter().map(|p| p.display().to_string()).collect();
     expected.sort();
 
     let output = binary()
-        .args(["--config", "tests/test_config.toml", "scan"])
+        .args(["--config", config_path.to_str().unwrap(), "scan"])
         .output()
-        .expect("failed to run");
+        .expect("run binary");
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut iter = stdout.lines();
     iter.next(); // skip config dump
     let summary = iter.next().unwrap_or("");
-    assert!(summary.starts_with("Found ")); // basic sanity check
+    assert!(summary.starts_with("Found "));
     let mut lines: Vec<String> = iter.map(|s| s.to_string()).collect();
     lines.sort();
     assert_eq!(lines, expected);
@@ -50,27 +49,54 @@ fn scan_subcommand_runs() {
 
 #[test]
 fn backup_subcommand_runs() {
+    let tmp = tempdir().unwrap();
+    let dest = tmp.path().join("dest");
+    let config_path = tmp.path().join("config.toml");
+    let content = format!(
+        "[paths]\ninclude=[\"src\"]\nexclude=[]\n\n[backup]\ndestination=\"{}\"\nkeep_versions=true\nmax_versions=1\n",
+        dest.display()
+    );
+    fs::write(&config_path, content).unwrap();
+
     let output = binary()
-        .args(["--config", "tests/test_config.toml", "backup"])
+        .args(["--config", config_path.to_str().unwrap(), "backup"])
         .output()
-        .expect("failed to run");
+        .expect("run binary");
     assert!(output.status.success());
 }
 
 #[test]
 fn vacuum_subcommand_runs() {
+    let tmp = tempdir().unwrap();
+    let dest = tmp.path().join("dest");
+    let config_path = tmp.path().join("config.toml");
+    let content = format!(
+        "[paths]\ninclude=[\"src\"]\nexclude=[]\n\n[backup]\ndestination=\"{}\"\nkeep_versions=true\nmax_versions=1\n",
+        dest.display()
+    );
+    fs::write(&config_path, content).unwrap();
+
     let output = binary()
-        .args(["--config", "tests/test_config.toml", "vacuum"])
+        .args(["--config", config_path.to_str().unwrap(), "vacuum"])
         .output()
-        .expect("failed to run");
+        .expect("run binary");
     assert!(output.status.success());
 }
 
 #[test]
 fn status_subcommand_runs() {
+    let tmp = tempdir().unwrap();
+    let dest = tmp.path().join("dest");
+    let config_path = tmp.path().join("config.toml");
+    let content = format!(
+        "[paths]\ninclude=[\"src\"]\nexclude=[]\n\n[backup]\ndestination=\"{}\"\nkeep_versions=true\nmax_versions=1\n",
+        dest.display()
+    );
+    fs::write(&config_path, content).unwrap();
+
     let output = binary()
-        .args(["--config", "tests/test_config.toml", "status"])
+        .args(["--config", config_path.to_str().unwrap(), "status"])
         .output()
-        .expect("failed to run");
+        .expect("run binary");
     assert!(output.status.success());
 }
