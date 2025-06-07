@@ -88,6 +88,11 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
 
     let dest_root = PathBuf::from(&config.backup.destination);
     let files = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
+    let total_bytes: u64 = files
+        .iter()
+        .filter_map(|p| fs::metadata(p).ok().map(|m| m.len()))
+        .sum();
+    let total_mb = total_bytes as f64 / (1024.0 * 1024.0);
 
     println!(
         "Found {} changed files since {}",
@@ -95,9 +100,15 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
         state.latest.timestamp
     );
 
-    for path in files {
+    for path in &files {
         println!("{}", path.display());
     }
+
+    println!(
+        "Scan complete. {} files, {:.2} MB total.",
+        files.len(),
+        total_mb
+    );
 
     Ok(())
 }
