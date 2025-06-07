@@ -43,6 +43,8 @@ fn scan_subcommand_runs() {
     let summary = iter.next().unwrap_or("");
     assert!(summary.starts_with("Found "));
     let mut lines: Vec<String> = iter.map(|s| s.to_string()).collect();
+    let final_summary = lines.pop().unwrap_or_default();
+    assert!(final_summary.starts_with("Scan complete"));
     lines.sort();
     assert_eq!(lines, expected);
 }
