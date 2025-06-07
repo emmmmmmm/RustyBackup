@@ -8,7 +8,8 @@ use crate::config::Config;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupState {
     pub latest: LatestBackup,
-    pub stats: BackupStats,
+    /// Statistics for each completed backup run, newest first
+    pub stats: Vec<BackupStats>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -20,6 +21,7 @@ pub struct LatestBackup {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackupStats {
+    pub timestamp: DateTime<Local>,
     pub files_synced: u64,
     pub bytes_copied: u64,
     pub duration_ms: u64,
@@ -28,6 +30,7 @@ pub struct BackupStats {
 impl Default for BackupStats {
     fn default() -> Self {
         Self {
+            timestamp: DateTime::<Local>::from(SystemTime::UNIX_EPOCH),
             files_synced: 0,
             bytes_copied: 0,
             duration_ms: 0,
@@ -43,7 +46,7 @@ impl Default for BackupState {
                 snapshot_id: String::new(),
                 destination: PathBuf::new(),
             },
-            stats: BackupStats::default(),
+            stats: Vec::new(),
         }
     }
 }
@@ -65,9 +68,13 @@ impl BackupState {
         self.latest.snapshot_id = progress.snapshot_id.to_string();
         self.latest.destination = PathBuf::from(&config.backup.destination);
 
-        self.stats.files_synced = progress.completed.files.len() as u64;
-        self.stats.bytes_copied = progress.bytes_copied;
-        self.stats.duration_ms = progress.duration.as_millis() as u64;
+        let entry = BackupStats {
+            timestamp: progress.timestamp,
+            files_synced: progress.completed.files.len() as u64,
+            bytes_copied: progress.bytes_copied,
+            duration_ms: progress.duration.as_millis() as u64,
+        };
+        self.stats.insert(0, entry);
     }
 
 
