@@ -13,6 +13,8 @@ fn binary() -> Command {
 fn help_displays() {
     let output = binary().arg("--help").output().expect("failed to run");
     assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("--fullscan"));
 }
 
 #[test]
@@ -27,7 +29,7 @@ fn scan_subcommand_runs() {
     fs::write(&config_path, content).unwrap();
 
     let includes = vec![PathBuf::from("src")];
-    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &[], &dest)
+    let expected = journal::changed_files(SystemTime::UNIX_EPOCH, &includes, &[], &dest, false)
         .expect("collect changed files");
     let mut expected: Vec<String> = expected.iter().map(|p| p.display().to_string()).collect();
     expected.sort();
@@ -47,6 +49,24 @@ fn scan_subcommand_runs() {
     assert!(final_summary.starts_with("Scan complete"));
     lines.sort();
     assert_eq!(lines, expected);
+}
+
+#[test]
+fn scan_subcommand_runs_with_fullscan() {
+    let tmp = tempdir().unwrap();
+    let dest = tmp.path().join("dest");
+    let config_path = tmp.path().join("config.toml");
+    let content = format!(
+        "[paths]\ninclude=[\"src\"]\nexclude=[]\n\n[backup]\ndestination=\"{}\"\nkeep_versions=true\nmax_versions=1\n",
+        dest.display()
+    );
+    fs::write(&config_path, content).unwrap();
+
+    let output = binary()
+        .args(["--config", config_path.to_str().unwrap(), "--fullscan", "scan"])
+        .output()
+        .expect("run binary");
+    assert!(output.status.success());
 }
 
 #[test]

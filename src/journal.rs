@@ -16,6 +16,7 @@ pub fn changed_files(
     include_paths: &[PathBuf],
     exclude_patterns: &[String],
     destination: &Path,
+    check_destination: bool,
 ) -> Result<Vec<PathBuf>> {
     let mut builder = GlobSetBuilder::new();
     for pattern in exclude_patterns {
@@ -48,7 +49,9 @@ pub fn changed_files(
             if entry.file_type().is_file() && !excludes.is_match(path) {
                 if let Ok(metadata) = entry.metadata() {
                     if let Ok(modified) = metadata.modified() {
-                        let needs_update = modified > since || {
+                        let needs_update = if modified > since {
+                            true
+                        } else if check_destination {
                             // compute destination path and check if it exists
                             let (normalized_root, relative) = include_paths
                                 .iter()
@@ -69,6 +72,8 @@ pub fn changed_files(
                                 .join(normalized_root)
                                 .join(relative);
                             !dest_file.exists()
+                        } else {
+                            false
                         };
 
                         if needs_update {

@@ -74,7 +74,7 @@ impl TempBackup {
 /// Scan and print all files under the configured include paths.
 ///
 /// Entries matching any of the configured exclude patterns will be skipped.
-pub fn scan(config: &Config) -> anyhow::Result<()> {
+pub fn scan(config: &Config, fullscan: bool) -> anyhow::Result<()> {
     let includes: Vec<PathBuf> = config
         .paths
         .include
@@ -87,7 +87,7 @@ pub fn scan(config: &Config) -> anyhow::Result<()> {
     let since: SystemTime = state.latest.timestamp.into();
 
     let dest_root = PathBuf::from(&config.backup.destination);
-    let files = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
+    let files = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root, fullscan)?;
     let total_bytes: u64 = files
         .iter()
         .filter_map(|p| fs::metadata(p).ok().map(|m| m.len()))
@@ -151,7 +151,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
                 .map(PathBuf::from)
                 .collect();
             let dest_root = PathBuf::from(&config.backup.destination);
-            let changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
+            let changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root, true)?;
             TempBackup::new(changed)
         }
     } else {    
@@ -162,7 +162,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
             .map(PathBuf::from)
             .collect();
         let dest_root = PathBuf::from(&config.backup.destination);
-        let  changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root)?;
+        let  changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root, true)?;
         TempBackup::new(changed)
     };
 
