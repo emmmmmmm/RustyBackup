@@ -314,28 +314,38 @@ pub fn vacuum(config: &Config) -> Result<()> {
     println!("Vacuuming old backups...");
 
     let history_root = PathBuf::from(&config.backup.destination).join("History");
-    //let max_versions = config.backup.max_versions.unwrap_or(5);
     if !history_root.exists() {
         println!("No history folder found.");
         return Ok(());
     }
 
-    let mut file_versions: HashMap<PathBuf, Vec<(DateTime<Local>, PathBuf)>> = HashMap::new();
-    let re = Regex::new(r"^(.*)_((?:\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}))(\..+)?$").unwrap();
-
-    for entry in walkdir::WalkDir::new(&history_root)
+    // Collect all file entries so we know the scan length for the progress bar
+    let entries: Vec<_> = walkdir::WalkDir::new(&history_root)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
-    {
+        .collect();
+
+    let scan_pb = ProgressBar::new(entries.len() as u64);
+    scan_pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files ({eta})")
+            .unwrap()
+            .progress_chars("##-")
+    );
+
+    let mut file_versions: HashMap<PathBuf, Vec<(DateTime<Local>, PathBuf)>> = HashMap::new();
+    let re = Regex::new(r"^(.*)_((?:\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}))(\..+)?$").unwrap();
+
+    for entry in entries {
+        scan_pb.inc(1);
+        scan_pb.set_message(entry.path().display().to_string());
         let full_path = normalize_path(entry.path()).to_path_buf();
         let filename = full_path.file_name().unwrap().to_string_lossy();
-        //println!("→ Found file: {}", filename);
         if let Some(caps) = re.captures(&filename) {
             let base = caps.get(1).unwrap().as_str();
             let ts_str = caps.get(2).unwrap().as_str();
             let ext = caps.get(3).map(|e| e.as_str()).unwrap_or("");
-            //println!("  ✓ Matched base: {}, timestamp: {}, ext: {}", base, ts_str, ext);
 
             if let Ok(naive) = NaiveDateTime::parse_from_str(ts_str, "%Y-%m-%dT%H-%M-%S") {
                 let mut canonical = full_path.clone();
@@ -343,39 +353,53 @@ pub fn vacuum(config: &Config) -> Result<()> {
                 canonical.set_file_name(format!("{}{}", base, ext));
                 let canonical = normalize_path(&canonical);
 
-                //println!("  → Canonical form: {}", canonical.display());
                 file_versions
                     .entry(canonical)
                     .or_default()
                     .push((local_dt, full_path.clone()));
-            } else {
-                println!("  ✗ Failed to parse timestamp: {}", ts_str);
             }
-        } else {
-            println!("  ✗ No regex match");
         }
     }
+    scan_pb.finish_with_message("Scan complete.");
+
     let mut total_candidates = 0;
+    let mut delete_candidates: Vec<PathBuf> = Vec::new();
     for (base_path, mut versions) in file_versions {
         versions.sort_by_key(|(ts, _)| std::cmp::Reverse(*ts));
         let keep = config.backup.max_versions.unwrap_or(0) as usize;
         let to_prune = &versions[keep.min(versions.len())..];
-        //println!("  → {} has {} versions, keeping {}, pruning {}",
-        //    base_path.display(), versions.len(), keep, to_prune.len());
         if !to_prune.is_empty() {
             println!("Found {} prune candidates for {}:", to_prune.len(), base_path.display());
             for (_ts, path) in to_prune {
                 println!("{} ", path.display());
-
-                // TODO: this would actually remove files!
-                // fs::remove_file(&path).with_context(|| format!("Failed to delete {}", path.display()))?;
+                delete_candidates.push(path.clone());
                 total_candidates += 1;
             }
         }
     }
 
-    println!("Vacuum dry-run complete. {} files would be removed.", total_candidates);
-    
+    if delete_candidates.is_empty() {
+        println!("Nothing to vacuum.");
+        return Ok(());
+    }
+
+    let delete_pb = ProgressBar::new(delete_candidates.len() as u64);
+    delete_pb.set_style(
+        ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files ({eta})")
+            .unwrap()
+            .progress_chars("##-")
+    );
+
+    for path in delete_candidates {
+        delete_pb.inc(1);
+        delete_pb.set_message(path.display().to_string());
+        fs::remove_file(&path).with_context(|| format!("Failed to delete {}", path.display()))?;
+    }
+    delete_pb.finish_with_message("Vacuum complete.");
+
+    println!("Removed {} outdated file(s).", total_candidates);
+
     Ok(())
 }
 
