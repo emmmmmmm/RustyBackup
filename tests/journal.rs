@@ -18,7 +18,7 @@ fn file_included_when_missing_in_destination() {
     let dest_dir = tmp.path().join("dest");
     fs::create_dir_all(&dest_dir).unwrap();
 
-    let changed = journal::changed_files(since, &[include_dir.clone()], &[], &dest_dir).unwrap();
+    let changed = journal::changed_files(since, &[include_dir.clone()], &[], &dest_dir, true).unwrap();
     assert_eq!(changed, vec![src_file]);
 }
 
@@ -40,6 +40,6 @@ fn file_skipped_when_present_and_unchanged() {
     std::thread::sleep(Duration::from_millis(10));
     let since = SystemTime::now();
 
-    let changed = journal::changed_files(since, &[include_dir.clone()], &[], &dest_dir).unwrap();
+    let changed = journal::changed_files(since, &[include_dir.clone()], &[], &dest_dir, true).unwrap();
     assert!(changed.is_empty());
 }

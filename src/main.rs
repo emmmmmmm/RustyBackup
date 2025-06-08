@@ -23,6 +23,10 @@ struct Args {
     #[arg(short, long, default_value = "config.toml")]
     config: PathBuf,
 
+    /// Perform a full scan checking the backup destination
+    #[arg(long, default_value_t = false)]
+    fullscan: bool,
+
     /// Action to perform
     #[command(subcommand)]
     command: Commands,
@@ -49,7 +53,7 @@ fn main() -> anyhow::Result<()> {
     println!("Loaded config: {:?}", config);
 
     match args.command {
-        Commands::Scan => backup::scan(&config)?,
+        Commands::Scan => backup::scan(&config, args.fullscan)?,
         Commands::Backup => backup::run_backup(&config)?,
         Commands::Vacuum => backup::vacuum(&config)?,
         Commands::Status => backup::status(&config)?,
