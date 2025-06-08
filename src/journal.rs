@@ -4,6 +4,7 @@ use std::time::SystemTime;
 
 use globset::{Glob, GlobSetBuilder};
 use walkdir::WalkDir;
+use indicatif::{ProgressBar, ProgressStyle};
 
 
 /// Return a list of files modified after `since` from the `include_paths`,
@@ -24,13 +25,26 @@ pub fn changed_files(
 
     let mut files = Vec::new();
 
+    let style = ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} files ({eta})")
+        .unwrap()
+        .progress_chars("##-");
+
     for include in include_paths {
-        for entry in WalkDir::new(include)
+        let entries: Vec<_> = WalkDir::new(include)
             .into_iter()
             .filter_entry(|e| !excludes.is_match(e.path()))
-        {
-            let entry = entry?;
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+            .collect();
+
+        let pb = ProgressBar::new(entries.len() as u64);
+        pb.set_style(style.clone());
+        pb.set_message(include.display().to_string());
+
+        for entry in entries {
             let path = entry.path();
+            pb.inc(1);
             if entry.file_type().is_file() && !excludes.is_match(path) {
                 if let Ok(metadata) = entry.metadata() {
                     if let Ok(modified) = metadata.modified() {
@@ -64,6 +78,7 @@ pub fn changed_files(
                 }
             }
         }
+        pb.finish_with_message(format!("{} scanned", include.display()));
     }
 
     Ok(files)
