@@ -39,6 +39,7 @@ pub fn changed_files(
             .filter(|e| e.file_type().is_file())
             .collect();
 
+        // these don't really work, because walkdir is what's slowing us down i think. // TODO
         let pb = ProgressBar::new(entries.len() as u64);
         pb.set_style(style.clone());
         pb.set_message(include.display().to_string());
@@ -78,6 +79,7 @@ pub fn changed_files(
 
                         if needs_update {
                             files.push(path.to_path_buf());
+                            //println!( "added {} ", path.display() );
                         }
                     }
                 }
