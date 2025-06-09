@@ -152,6 +152,10 @@ pub fn run_backup(config: &Config) -> Result<()> {
     let mut progress = if temp_state_file.exists() {
         let tmp = TempBackup::load(&temp_state_file)?;
         if tmp.status.state == "in_progress" {
+            println!(
+                "Resuming previous backup from {}",
+                temp_state_file.display()
+            );
             tmp
         } else {
             let includes: Vec<PathBuf> = config
