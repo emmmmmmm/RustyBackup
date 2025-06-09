@@ -128,9 +128,10 @@ pub fn run_backup(config: &Config) -> Result<()> {
         bail!("Backup destination must be a directory: {}", dest.display());
     }
 
-    // Move files that no longer exist in the source to the History folder so
-    // the main backup remains a clean mirror of the source.
-    clean_removed_files(&dest, config)?;
+    // Determine files that no longer exist in the source and need to be moved
+    // to the History folder. The actual moving is done later so we can include
+    // them in the progress bar and statistics.
+    let removed_files = find_removed_files(&dest, config)?;
 
     let state_file = dest.join("state.toml");
     let mut state = load_or_init_state(&state_file)?;
@@ -189,7 +190,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     let mut failed: HashSet<PathBuf> = progress.failed.files.iter().cloned().collect();
 
 
-    let total_files = progress.incomplete.files.len() as u64;
+    let total_files = progress.incomplete.files.len() as u64 + removed_files.len() as u64;
     let pb = ProgressBar::new(total_files);
     pb.set_style(
         ProgressStyle::default_bar()
@@ -198,6 +199,38 @@ pub fn run_backup(config: &Config) -> Result<()> {
             .progress_chars("##-")
     );
 
+    let mut removed_count = 0u64;
+    for removed in &removed_files {
+        pb.inc(1);
+        pb.set_message(removed.display().to_string());
+
+        let rel = removed.strip_prefix(&dest).unwrap();
+        let mut comps = rel.components();
+        let label = comps.next().unwrap().as_os_str();
+        let relative = comps.as_path();
+
+        let history_dir = dest
+            .join("History")
+            .join(label)
+            .join(relative.parent().unwrap_or_else(|| Path::new("")));
+        if let Err(e) = fs::create_dir_all(&history_dir) {
+            eprintln!("Failed to create history directory: {}: {e}", history_dir.display());
+            continue;
+        }
+
+        let timestamp = Local::now().format("%Y-%m-%dT%H-%M-%S");
+        let file_stem = removed.file_stem().and_then(|s| s.to_str()).unwrap_or("file");
+        let extension = removed.extension().and_then(|e| e.to_str());
+        let filename = match extension {
+            Some(ext) => format!("{}_{}.{}", file_stem, timestamp, ext),
+            None => format!("{}_{}", file_stem, timestamp),
+        };
+        let history_path = history_dir.join(filename);
+        match fs::rename(removed, &history_path) {
+            Ok(_) => removed_count += 1,
+            Err(e) => eprintln!("Failed to move removed file to history {}: {e}", removed.display()),
+        }
+    }
 
 
     for path in &progress.incomplete.files {
@@ -295,7 +328,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     progress.save(&temp_state_file)?;
 
     // Update global state
-    state.record_backup(&progress, &config); 
+    state.record_backup(&progress, &config, removed_count);
     state.save(&state_file)?;
 
     // Remove .incomplete marker
@@ -415,10 +448,10 @@ fn normalize_path(path: &Path) -> PathBuf {
     PathBuf::from(path.to_string_lossy().replace('\\', "/"))
 }
 
-/// Move files that exist in the backup destination but are no longer present
-/// in the source directories into the `History` folder with a timestamp.
-fn clean_removed_files(dest: &Path, config: &Config) -> Result<()> {
-    // Map normalized root labels back to their source directories
+/// Scan the backup destination for files that no longer exist in the source
+/// directories. Returns a list of backup file paths that should be moved to the
+/// `History` folder.
+fn find_removed_files(dest: &Path, config: &Config) -> Result<Vec<PathBuf>> {
     let mut roots: HashMap<String, PathBuf> = HashMap::new();
     for include in &config.paths.include {
         let p = PathBuf::from(include);
@@ -430,6 +463,7 @@ fn clean_removed_files(dest: &Path, config: &Config) -> Result<()> {
         roots.insert(label, p);
     }
 
+    let mut removed = Vec::new();
     for (label, src_root) in &roots {
         let backup_root = dest.join(label);
         if !backup_root.exists() {
@@ -445,31 +479,10 @@ fn clean_removed_files(dest: &Path, config: &Config) -> Result<()> {
             let rel = backup_path.strip_prefix(&backup_root).unwrap();
             let src_path = src_root.join(rel);
             if !src_path.exists() {
-                let history_dir = dest
-                    .join("History")
-                    .join(label)
-                    .join(rel.parent().unwrap_or_else(|| Path::new("")));
-                fs::create_dir_all(&history_dir)
-                    .with_context(|| {
-                        format!("Failed to create history directory: {}", history_dir.display())
-                    })?;
-
-                let timestamp = Local::now().format("%Y-%m-%dT%H-%M-%S");
-                let file_stem = backup_path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("file");
-                let extension = backup_path.extension().and_then(|e| e.to_str());
-                let filename = match extension {
-                    Some(ext) => format!("{}_{}.{}", file_stem, timestamp, ext),
-                    None => format!("{}_{}", file_stem, timestamp),
-                };
-                let history_path = history_dir.join(filename);
-                fs::rename(backup_path, &history_path).with_context(|| {
-                    format!("Failed to move removed file to history: {}", history_path.display())
-                })?;
+                removed.push(backup_path.to_path_buf());
             }
         }
     }
-    Ok(())
+
+    Ok(removed)
 }
