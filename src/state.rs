@@ -66,7 +66,7 @@ impl BackupState {
         Ok(())
     }
 
-    pub fn record_backup(&mut self, progress: &backup::TempBackup, config: &Config) {
+    pub fn record_backup(&mut self, progress: &backup::TempBackup, config: &Config, removed: u64) {
         self.latest.timestamp = progress.timestamp;
         self.latest.snapshot_id = progress.snapshot_id.to_string();
         self.latest.destination = PathBuf::from(&config.backup.destination);
@@ -74,7 +74,7 @@ impl BackupState {
         let entry = BackupStats {
             timestamp: progress.timestamp,
             snapshot_id: progress.snapshot_id.to_string(),
-            files_synced: progress.completed.files.len() as u64,
+            files_synced: progress.completed.files.len() as u64 + removed,
             bytes_copied: progress.bytes_copied,
             duration_ms: progress.duration.as_millis() as u64,
         };
