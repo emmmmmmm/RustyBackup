@@ -178,6 +178,20 @@ pub fn run_backup(config: &Config) -> Result<()> {
         progress.snapshot_id = last_id.saturating_add(1);
     }
 
+    // Log collected paths before starting any file operations
+    for p in &progress.incomplete.files {
+        println!("{}", p.display());
+    }
+    for removed in &removed_files {
+        println!("{}", removed.display());
+    }
+    println!(
+        "Summary -> files changed: {} removed files: {}",
+        progress.incomplete.files.len(),
+        removed_files.len()
+    );
+    println!("Progress file: {}", temp_state_file.display());
+
 
 
 
