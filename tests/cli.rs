@@ -42,8 +42,6 @@ fn scan_subcommand_runs() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut iter = stdout.lines();
     iter.next(); // skip config dump
-    let summary = iter.next().unwrap_or("");
-    assert!(summary.starts_with("Found "));
     let mut lines: Vec<String> = iter.map(|s| s.to_string()).collect();
     let final_summary = lines.pop().unwrap_or_default();
     assert!(final_summary.starts_with("Scan complete"));

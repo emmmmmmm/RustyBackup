@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::journal;
+use crate::utils::normalize_path;
 use crate::state::load_or_init_state;
 use serde::{Deserialize, Serialize};
 use anyhow::{bail, Context, Result};
@@ -131,7 +132,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     // Determine files that no longer exist in the source and need to be moved
     // to the History folder. The actual moving is done later so we can include
     // them in the progress bar and statistics.
-    let removed_files = find_removed_files(&dest, config)?;
+    let removed_files = journal::find_removed_files(&dest, config)?;
 
     let state_file = dest.join("state.toml");
     let mut state = load_or_init_state(&state_file)?;
@@ -353,7 +354,7 @@ pub fn vacuum(config: &Config) -> Result<()> {
     }
 
     // Collect all file entries so we know the scan length for the progress bar
-    let entries: Vec<_> = walkdir::WalkDir::new(&history_root)
+    let entries: Vec<_> = WalkDir::new(&history_root)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
@@ -444,45 +445,3 @@ pub fn status(_config: &Config) -> anyhow::Result<()> {
 }
 
 
-fn normalize_path(path: &Path) -> PathBuf {
-    PathBuf::from(path.to_string_lossy().replace('\\', "/"))
-}
-
-/// Scan the backup destination for files that no longer exist in the source
-/// directories. Returns a list of backup file paths that should be moved to the
-/// `History` folder.
-fn find_removed_files(dest: &Path, config: &Config) -> Result<Vec<PathBuf>> {
-    let mut roots: HashMap<String, PathBuf> = HashMap::new();
-    for include in &config.paths.include {
-        let p = PathBuf::from(include);
-        let label = p
-            .to_string_lossy()
-            .replace(':', "")
-            .replace('\\', "-")
-            .replace('/', "-");
-        roots.insert(label, p);
-    }
-
-    let mut removed = Vec::new();
-    for (label, src_root) in &roots {
-        let backup_root = dest.join(label);
-        if !backup_root.exists() {
-            continue;
-        }
-
-        for entry in WalkDir::new(&backup_root)
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-        {
-            let backup_path = entry.path();
-            let rel = backup_path.strip_prefix(&backup_root).unwrap();
-            let src_path = src_root.join(rel);
-            if !src_path.exists() {
-                removed.push(backup_path.to_path_buf());
-            }
-        }
-    }
-
-    Ok(removed)
-}
