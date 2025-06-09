@@ -14,6 +14,7 @@ use chrono::{NaiveDateTime};
 use chrono::TimeZone;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
+use walkdir::WalkDir;
 
 
 #[derive(Serialize, Deserialize)]
@@ -100,6 +101,12 @@ pub fn scan(config: &Config, fullscan: bool) -> anyhow::Result<()> {
         state.latest.timestamp
     );
 
+    for f in &files {
+        println!("{}", f.display());
+    }
+
+    println!("Scan complete");
+
     Ok(())
 }
 
@@ -121,6 +128,10 @@ pub fn run_backup(config: &Config) -> Result<()> {
     if !dest.is_dir() {
         bail!("Backup destination must be a directory: {}", dest.display());
     }
+
+    // Move files that no longer exist in the source to the History folder so
+    // the main backup remains a clean mirror of the source.
+    clean_removed_files(&dest, config)?;
 
     let state_file = dest.join("state.toml");
     let mut state = load_or_init_state(&state_file)?;
@@ -403,4 +414,63 @@ pub fn status(_config: &Config) -> anyhow::Result<()> {
 
 fn normalize_path(path: &Path) -> PathBuf {
     PathBuf::from(path.to_string_lossy().replace('\\', "/"))
+}
+
+/// Move files that exist in the backup destination but are no longer present
+/// in the source directories into the `History` folder with a timestamp.
+fn clean_removed_files(dest: &Path, config: &Config) -> Result<()> {
+    // Map normalized root labels back to their source directories
+    let mut roots: HashMap<String, PathBuf> = HashMap::new();
+    for include in &config.paths.include {
+        let p = PathBuf::from(include);
+        let label = p
+            .to_string_lossy()
+            .replace(':', "")
+            .replace('\\', "-")
+            .replace('/', "-");
+        roots.insert(label, p);
+    }
+
+    for (label, src_root) in &roots {
+        let backup_root = dest.join(label);
+        if !backup_root.exists() {
+            continue;
+        }
+
+        for entry in WalkDir::new(&backup_root)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+        {
+            let backup_path = entry.path();
+            let rel = backup_path.strip_prefix(&backup_root).unwrap();
+            let src_path = src_root.join(rel);
+            if !src_path.exists() {
+                let history_dir = dest
+                    .join("History")
+                    .join(label)
+                    .join(rel.parent().unwrap_or_else(|| Path::new("")));
+                fs::create_dir_all(&history_dir)
+                    .with_context(|| {
+                        format!("Failed to create history directory: {}", history_dir.display())
+                    })?;
+
+                let timestamp = Local::now().format("%Y-%m-%dT%H-%M-%S");
+                let file_stem = backup_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("file");
+                let extension = backup_path.extension().and_then(|e| e.to_str());
+                let filename = match extension {
+                    Some(ext) => format!("{}_{}.{}", file_stem, timestamp, ext),
+                    None => format!("{}_{}", file_stem, timestamp),
+                };
+                let history_path = history_dir.join(filename);
+                fs::rename(backup_path, &history_path).with_context(|| {
+                    format!("Failed to move removed file to history: {}", history_path.display())
+                })?;
+            }
+        }
+    }
+    Ok(())
 }
