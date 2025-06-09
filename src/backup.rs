@@ -32,12 +32,19 @@ impl FromIterator<PathBuf> for FileList {
         FileList { files: iter.into_iter().collect() }
     }
 }
+impl Default for FileList {
+    fn default() -> Self {
+        FileList { files: Vec::new() }
+    }
+}
 #[derive(Serialize, Deserialize)]
 pub struct TempBackup {
     pub status: Status,
     pub incomplete: FileList,
     pub completed: FileList,
     pub failed: FileList,
+    #[serde(default)]
+    pub removed: FileList,
     #[serde(default)]
     pub bytes_copied: u64,
     pub duration:  Duration,
@@ -46,7 +53,7 @@ pub struct TempBackup {
 }
 
 impl TempBackup {
-    fn new(files: Vec<PathBuf>) -> Self {
+    fn new(files: Vec<PathBuf>, removed: Vec<PathBuf>) -> Self {
         Self {
             status: Status {
                 state: "in_progress".to_string(),
@@ -54,6 +61,7 @@ impl TempBackup {
             incomplete: FileList { files },
             completed: FileList { files: Vec::new() },
             failed: FileList { files: Vec::new() },
+            removed: FileList { files: removed },
             bytes_copied: 0,
             duration: Duration::ZERO,
             timestamp: DateTime::<Local>::from(SystemTime::UNIX_EPOCH),
@@ -132,7 +140,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     // Determine files that no longer exist in the source and need to be moved
     // to the History folder. The actual moving is done later so we can include
     // them in the progress bar and statistics.
-    let removed_files = journal::find_removed_files(&dest, config)?;
+    let current_removed = journal::find_removed_files(&dest, config)?;
 
     let state_file = dest.join("state.toml");
     let mut state = load_or_init_state(&state_file)?;
@@ -154,9 +162,9 @@ pub fn run_backup(config: &Config) -> Result<()> {
                 .collect();
             let dest_root = PathBuf::from(&config.backup.destination);
             let changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root, true)?;
-            TempBackup::new(changed)
+            TempBackup::new(changed, current_removed.clone())
         }
-    } else {    
+    } else {
         let includes: Vec<PathBuf> = config
             .paths
             .include
@@ -165,8 +173,15 @@ pub fn run_backup(config: &Config) -> Result<()> {
             .collect();
         let dest_root = PathBuf::from(&config.backup.destination);
         let  changed = journal::changed_files(since, &includes, &config.paths.exclude, &dest_root, true)?;
-        TempBackup::new(changed)
+        TempBackup::new(changed, current_removed.clone())
     };
+
+    // Merge any newly detected removed files with ones already in progress
+    let mut removed_set: HashSet<PathBuf> = progress.removed.files.iter().cloned().collect();
+    for r in current_removed {
+        removed_set.insert(r);
+    }
+    progress.removed = removed_set.into_iter().collect();
 
     // Set or increment snapshot id based on the previously stored state
     if progress.snapshot_id == 0 {
@@ -182,13 +197,13 @@ pub fn run_backup(config: &Config) -> Result<()> {
     for p in &progress.incomplete.files {
         println!("{}", p.display());
     }
-    for removed in &removed_files {
+    for removed in &progress.removed.files {
         println!("{}", removed.display());
     }
     println!(
         "Summary -> files changed: {} removed files: {}",
         progress.incomplete.files.len(),
-        removed_files.len()
+        progress.removed.files.len()
     );
     println!("Progress file: {}", temp_state_file.display());
 
@@ -205,7 +220,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     let mut failed: HashSet<PathBuf> = progress.failed.files.iter().cloned().collect();
 
 
-    let total_files = progress.incomplete.files.len() as u64 + removed_files.len() as u64;
+    let total_files = progress.incomplete.files.len() as u64 + progress.removed.files.len() as u64;
     let pb = ProgressBar::new(total_files);
     pb.set_style(
         ProgressStyle::default_bar()
@@ -215,7 +230,8 @@ pub fn run_backup(config: &Config) -> Result<()> {
     );
 
     let mut removed_count = 0u64;
-    for removed in &removed_files {
+    let mut remaining_removed: Vec<PathBuf> = Vec::new();
+    for removed in std::mem::take(&mut progress.removed.files) {
         pb.inc(1);
         pb.set_message(removed.display().to_string());
 
@@ -241,10 +257,15 @@ pub fn run_backup(config: &Config) -> Result<()> {
             None => format!("{}_{}", file_stem, timestamp),
         };
         let history_path = history_dir.join(filename);
-        match fs::rename(removed, &history_path) {
+        match fs::rename(&removed, &history_path) {
             Ok(_) => removed_count += 1,
-            Err(e) => eprintln!("Failed to move removed file to history {}: {e}", removed.display()),
+            Err(e) => {
+                eprintln!("Failed to move removed file to history {}: {e}", removed.display());
+                remaining_removed.push(removed);
+            }
         }
+        progress.removed.files = remaining_removed.clone();
+        progress.save(&temp_state_file)?;
     }
 
 
