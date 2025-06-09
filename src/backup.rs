@@ -95,17 +95,16 @@ pub fn scan(config: &Config, fullscan: bool) -> anyhow::Result<()> {
         .sum();
     let total_mb = total_bytes as f64 / (1024.0 * 1024.0);
 
-    println!(
-        "Found {} files / ({:.2} MB) changed since {}",
-        files.len(),total_mb,
-        state.latest.timestamp
-    );
+
 
     for f in &files {
         println!("{}", f.display());
     }
-
-    println!("Scan complete");
+    println!(
+        "Scan complete: Found {} files / ({:.2} MB) changed since {}",
+        files.len(),total_mb,
+        state.latest.timestamp
+    );
 
     Ok(())
 }
