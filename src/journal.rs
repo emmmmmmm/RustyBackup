@@ -1,6 +1,8 @@
 use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
+use std::collections::HashMap;
+use crate::config::Config;
 
 use globset::{Glob, GlobSetBuilder};
 use walkdir::WalkDir;
@@ -89,6 +91,45 @@ pub fn changed_files(
     }
 
     Ok(files)
+}
+
+/// Scan the backup destination for files that no longer exist in the source
+/// directories. Returns a list of backup file paths that should be moved to the
+/// `History` folder.
+pub fn find_removed_files(dest: &Path, config: &Config) -> Result<Vec<PathBuf>> {
+    let mut roots: HashMap<String, PathBuf> = HashMap::new();
+    for include in &config.paths.include {
+        let p = PathBuf::from(include);
+        let label = p
+            .to_string_lossy()
+            .replace(':', "")
+            .replace('\\', "-")
+            .replace('/', "-");
+        roots.insert(label, p);
+    }
+
+    let mut removed = Vec::new();
+    for (label, src_root) in &roots {
+        let backup_root = dest.join(label);
+        if !backup_root.exists() {
+            continue;
+        }
+
+        for entry in WalkDir::new(&backup_root)
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+        {
+            let backup_path = entry.path();
+            let rel = backup_path.strip_prefix(&backup_root).unwrap();
+            let src_path = src_root.join(rel);
+            if !src_path.exists() {
+                removed.push(backup_path.to_path_buf());
+            }
+        }
+    }
+
+    Ok(removed)
 }
 
    
