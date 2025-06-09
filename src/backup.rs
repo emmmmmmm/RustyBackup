@@ -180,7 +180,8 @@ pub fn run_backup(config: &Config) -> Result<()> {
 
 
 
-
+    // Persist initial progress state so the .incomplete file exists immediately
+    progress.save(&temp_state_file)?;
 
 
 
