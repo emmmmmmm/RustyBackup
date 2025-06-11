@@ -20,6 +20,9 @@ pub fn changed_files(
     destination: &Path,
     check_destination: bool,
 ) -> Result<Vec<PathBuf>> {
+
+    eprintln!("Updating Journal... changed files");
+
     let mut builder = GlobSetBuilder::new();
     for pattern in exclude_patterns {
         builder.add(Glob::new(pattern)?);
@@ -33,6 +36,7 @@ pub fn changed_files(
         .unwrap()
         .progress_chars("##-");
 
+    // this actually takes quite some time when scanning tons of files.
     for include in include_paths {
         let entries: Vec<_> = WalkDir::new(include)
             .into_iter()
@@ -41,15 +45,16 @@ pub fn changed_files(
             .filter(|e| e.file_type().is_file())
             .collect();
 
-        // these don't really work, because walkdir is what's slowing us down i think. // TODO
+        
         let pb = ProgressBar::new(entries.len() as u64);
         pb.set_style(style.clone());
         pb.set_message(include.display().to_string());
 
+        // this is pretty slow.
         for entry in entries {
             let path = entry.path();
             pb.inc(1);
-            if entry.file_type().is_file() && !excludes.is_match(path) {
+            if entry.file_type().is_file()  {
                 if let Ok(metadata) = entry.metadata() {
                     if let Ok(modified) = metadata.modified() {
                         let needs_update = if modified > since {
@@ -97,6 +102,8 @@ pub fn changed_files(
 /// directories. Returns a list of backup file paths that should be moved to the
 /// `History` folder.
 pub fn find_removed_files(dest: &Path, config: &Config) -> Result<Vec<PathBuf>> {
+    
+    eprintln!("Updating Journal... removed files");
     let mut roots: HashMap<String, PathBuf> = HashMap::new();
     for include in &config.paths.include {
         let p = PathBuf::from(include);

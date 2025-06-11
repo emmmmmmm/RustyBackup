@@ -85,13 +85,15 @@ impl TempBackup {
 ///
 /// Entries matching any of the configured exclude patterns will be skipped.
 pub fn scan(config: &Config, fullscan: bool) -> anyhow::Result<()> {
+    eprintln!("scanning directories...");
+        
     let includes: Vec<PathBuf> = config
         .paths
         .include
         .iter()
         .map(PathBuf::from)
         .collect();
-
+    
     let state_path = PathBuf::from(&config.backup.destination).join("state.toml");
     let state = load_or_init_state(&state_path)?;
     let since: SystemTime = state.latest.timestamp.into();
@@ -123,12 +125,12 @@ pub fn scan(config: &Config, fullscan: bool) -> anyhow::Result<()> {
 pub fn run_backup(config: &Config) -> Result<()> {
     let start_time = Instant::now();
     let dest = PathBuf::from(&config.backup.destination);
-
+     eprintln!("Starting backup...");
+        
     // Ensure the destination directory exists or create it
     if !dest.exists() {
         fs::create_dir_all(&dest)
             .with_context(|| format!("Failed to create or access backup destination. Is the network drive mounted? Path: {}", dest.display()))?;
-
     }
 
     // Now canonicalize the existing directory
@@ -196,11 +198,12 @@ pub fn run_backup(config: &Config) -> Result<()> {
             .unwrap_or(0);
         progress.snapshot_id = last_id.saturating_add(1);
     }
-
     // Log collected paths before starting any file operations
+    println("files to update: ");
     for p in &progress.incomplete.files {
         println!("{}", p.display());
     }
+    println("removed files: ")
     for removed in &progress.removed.files {
         println!("{}", removed.display());
     }
@@ -216,9 +219,7 @@ pub fn run_backup(config: &Config) -> Result<()> {
     // Persist initial progress state so the .incomplete file exists immediately
     progress.save(&temp_state_file)?;
 
-
-
-
+    // todo: build table / dict of all paths so that we don't have to do it while iterating?
 
     // Backup each file individually
     let mut completed: HashSet<PathBuf> = progress.completed.files.iter().cloned().collect();
@@ -480,7 +481,7 @@ pub fn vacuum(config: &Config) -> Result<()> {
 
 /// Placeholder status implementation.
 pub fn status(_config: &Config) -> anyhow::Result<()> {
-    println!("Backup status: OK");
+    println!("Backup status: {}", config.status.state);
     Ok(())
 }
 
