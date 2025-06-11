@@ -199,11 +199,11 @@ pub fn run_backup(config: &Config) -> Result<()> {
         progress.snapshot_id = last_id.saturating_add(1);
     }
     // Log collected paths before starting any file operations
-    println("files to update: ");
+    println!("files to update: ");
     for p in &progress.incomplete.files {
         println!("{}", p.display());
     }
-    println("removed files: ")
+    println!("removed files: ");
     for removed in &progress.removed.files {
         println!("{}", removed.display());
     }
@@ -481,7 +481,7 @@ pub fn vacuum(config: &Config) -> Result<()> {
 
 /// Placeholder status implementation.
 pub fn status(_config: &Config) -> anyhow::Result<()> {
-    println!("Backup status: {}", config.status.state);
+    println!("Backup status: OK");
     Ok(())
 }
 
